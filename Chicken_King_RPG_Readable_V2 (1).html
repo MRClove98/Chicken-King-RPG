@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Chicken King RPG Readable V2</title>
+<style>
+body{margin:0;background:#111;color:white;font-family:Arial;text-align:center}
+canvas{display:block;margin:auto;border:3px solid white;background:#2f6b2f}
+#info{padding:8px}
+</style>
+</head>
+<body>
+<h1>🐔 Chicken King RPG Readable V2</h1>
+<div id="info">WASD Move | SPACE Attack | E Shop | H Potion | P Pause</div>
+<canvas id="game" width="1000" height="600"></canvas>
+
+<script>
+const c=document.getElementById("game"),ctx=c.getContext("2d");
+let state="start";
+let msg="Welcome!";
+let keys={};
+
+const player={x:100,y:100,hp:100,maxHp:100,lvl:1,xp:0,coins:0,dmg:10,potions:1};
+const shop={x:850,y:120,size:50};
+let enemies=[];
+
+function spawnEnemy(){
+ enemies.push({
+  x:Math.random()*900+50,
+  y:Math.random()*500+50,
+  hp:30+player.lvl*5
+ });
+}
+for(let i=0;i<8;i++) spawnEnemy();
+
+document.addEventListener("keydown",e=>{
+ keys[e.key.toLowerCase()]=true;
+
+ if(state==="start") state="play";
+
+ if(e.key===" ") attack();
+
+ if(e.key.toLowerCase()==="p"){
+   state=state==="play"?"pause":"play";
+ }
+
+ if(e.key.toLowerCase()==="h"){
+   if(player.potions>0){
+      player.potions--;
+      player.hp=Math.min(player.maxHp,player.hp+50);
+      msg="Used Potion!";
+   }else msg="No potions!";
+ }
+
+ if(e.key.toLowerCase()==="e"){
+   openShop();
+ }
+});
+
+document.addEventListener("keyup",e=>{
+ keys[e.key.toLowerCase()]=false;
+});
+
+function openShop(){
+ let d=Math.hypot(player.x-shop.x,player.y-shop.y);
+ if(d>80){
+   msg="Go closer to the shop!";
+   return;
+ }
+
+ let choice=prompt(
+`SHOP
+1 = Potion (10 coins)
+2 = Damage +5 (25 coins)
+3 = Max HP +20 (30 coins)`);
+
+ if(choice==="1"){
+   if(player.coins>=10){
+     player.coins-=10;
+     player.potions++;
+     msg="Bought Potion";
+   } else msg="Not enough coins";
+ }
+
+ if(choice==="2"){
+   if(player.coins>=25){
+     player.coins-=25;
+     player.dmg+=5;
+     msg="Damage upgraded";
+   } else msg="Not enough coins";
+ }
+
+ if(choice==="3"){
+   if(player.coins>=30){
+     player.coins-=30;
+     player.maxHp+=20;
+     player.hp+=20;
+     msg="Health upgraded";
+   } else msg="Not enough coins";
+ }
+}
+
+function attack(){
+ enemies=enemies.filter(e=>{
+   if(Math.hypot(player.x-e.x,player.y-e.y)<70){
+      e.hp-=player.dmg;
+      if(e.hp<=0){
+         player.coins+=5;
+         player.xp+=10;
+         msg="+5 Coins +10 XP";
+         return false;
+      }
+   }
+   return true;
+ });
+}
+
+function update(){
+ if(state!=="play") return;
+
+ const speed=3;
+
+ if(keys.w) player.y-=speed;
+ if(keys.s) player.y+=speed;
+ if(keys.a) player.x-=speed;
+ if(keys.d) player.x+=speed;
+
+ enemies.forEach(e=>{
+   let dx=player.x-e.x;
+   let dy=player.y-e.y;
+   let d=Math.hypot(dx,dy)||1;
+
+   e.x+=dx/d;
+   e.y+=dy/d;
+
+   if(d<20){
+      player.hp-=0.08;
+   }
+ });
+
+ while(player.xp>=player.lvl*50){
+   player.xp-=player.lvl*50;
+   player.lvl++;
+   player.maxHp+=10;
+   player.hp=player.maxHp;
+   msg="LEVEL UP!";
+ }
+
+ while(enemies.length<8){
+   spawnEnemy();
+ }
+
+ if(player.hp<=0){
+   state="gameover";
+ }
+}
+
+function bar(x,y,w,h,v,m,color){
+ ctx.fillStyle="#444";
+ ctx.fillRect(x,y,w,h);
+ ctx.fillStyle=color;
+ ctx.fillRect(x,y,w*(v/m),h);
+}
+
+function draw(){
+ ctx.fillStyle="#2f6b2f";
+ ctx.fillRect(0,0,c.width,c.height);
+
+ if(state==="start"){
+   ctx.fillStyle="white";
+   ctx.font="36px Arial";
+   ctx.fillText("Press Any Key To Start",290,300);
+   return;
+ }
+
+ bar(20,20,250,20,player.hp,player.maxHp,"lime");
+ bar(20,50,250,15,player.xp,player.lvl*50,"cyan");
+
+ ctx.fillStyle="white";
+ ctx.font="18px Arial";
+ ctx.fillText("Level: "+player.lvl,300,35);
+ ctx.fillText("Coins: "+player.coins,400,35);
+ ctx.fillText("Damage: "+player.dmg,520,35);
+ ctx.fillText("Potions: "+player.potions,680,35);
+
+ ctx.fillText(msg,20,90);
+
+ ctx.fillStyle="yellow";
+ ctx.fillRect(player.x-12,player.y-12,24,24);
+
+ ctx.fillStyle="brown";
+ ctx.fillRect(shop.x-25,shop.y-25,50,50);
+ ctx.fillStyle="white";
+ ctx.fillText("SHOP",shop.x-25,shop.y-35);
+
+ ctx.fillStyle="red";
+ enemies.forEach(e=>{
+   ctx.fillRect(e.x-10,e.y-10,20,20);
+ });
+
+ if(state==="pause"){
+   ctx.font="48px Arial";
+   ctx.fillText("PAUSED",380,300);
+ }
+
+ if(state==="gameover"){
+   ctx.font="48px Arial";
+   ctx.fillText("GAME OVER",320,300);
+ }
+}
+
+function loop(){
+ update();
+ draw();
+ requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
